@@ -3,6 +3,7 @@ import os
 import streamlit as st
 from langchain_openai import ChatOpenAI
 from langchain.schema import HumanMessage, SystemMessage
+from datetime import datetime
 
 load_dotenv()
 
@@ -58,6 +59,31 @@ IT技術全般に深い知識を持っています。
         return f"エラーが発生しました: {str(e)}"
 
 # Streamlitアプリケーションのメイン部分
+
+# セッション状態の初期化（チャット履歴用）
+if 'chat_history' not in st.session_state:
+    st.session_state.chat_history = []
+
+# サイドバーでチャット履歴を表示
+with st.sidebar:
+    st.header("📚 チャット履歴")
+    
+    if st.session_state.chat_history:
+        # 履歴クリアボタン
+        if st.button("🗑️ 履歴をクリア", key="clear_history"):
+            st.session_state.chat_history = []
+            st.rerun()
+        
+        st.divider()
+        
+        # 履歴を新しいものから順に表示
+        for i, chat in enumerate(reversed(st.session_state.chat_history)):
+            with st.expander(f"💬 {chat['expert']} - {chat['timestamp']}", expanded=False):
+                st.markdown(f"**質問:** {chat['question'][:100]}{'...' if len(chat['question']) > 100 else ''}")
+                st.markdown(f"**回答:** {chat['answer'][:200]}{'...' if len(chat['answer']) > 200 else ''}")
+    else:
+        st.info("まだチャット履歴がありません")
+
 st.title("🤖 LLM専門家コンサルティングアプリ")
 
 # アプリの概要説明
@@ -99,6 +125,15 @@ if st.button("💬 回答を取得", type="primary"):
             # LLMから回答を取得
             response = get_llm_response(user_input, expert_type)
             
+            # チャット履歴にセーブ
+            timestamp = datetime.now().strftime("%m/%d %H:%M")
+            st.session_state.chat_history.append({
+                'question': user_input,
+                'answer': response,
+                'expert': expert_type,
+                'timestamp': timestamp
+            })
+            
             st.divider()
             
             # 選択した専門家の表示
@@ -109,3 +144,18 @@ if st.button("💬 回答を取得", type="primary"):
             
     else:
         st.error("質問や相談内容を入力してから「回答を取得」ボタンを押してください。")
+
+# 最近のチャット履歴を表示（メインエリア）
+if st.session_state.chat_history:
+    st.divider()
+    st.header("📖 最近のチャット履歴")
+    
+    # 最新3つの履歴を表示
+    recent_chats = list(reversed(st.session_state.chat_history))[:3]
+    
+    for i, chat in enumerate(recent_chats):
+        with st.expander(f"💭 {chat['expert']} - {chat['timestamp']}", expanded=i==0):
+            st.markdown(f"**質問:**")
+            st.info(chat['question'])
+            st.markdown(f"**{chat['expert']}からの回答:**")
+            st.success(chat['answer'])
